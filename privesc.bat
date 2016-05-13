@@ -1,5 +1,7 @@
 @echo off
 
+:: accesschk.exe from Sysinternals - mandatory executable, needed by this script
+:: Listdlls.exe and pipelist.exe from Sysinternals - optional executables, few checks use them
 
 :: set the mode - full or lhf (low hanging fruits)
 set mode=lhf
