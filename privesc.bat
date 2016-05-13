@@ -73,41 +73,41 @@ for %%k in (%*) do (
 	echo.
 
 	echo Services and their registries permissions - change BINARY_PATH_NAME of a service or path to the binary in the registry:
-	accesschk.exe -accepteula -uwcqv %%~k * | findstr /v /l /i /c:"No matching objects found."
-	accesschk.exe -accepteula -kvuqsw %%~k hklm\System\CurrentControlSet\services | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -uwcqv %%k * | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -kvuqsw %%k hklm\System\CurrentControlSet\services | findstr /v /l /i /c:"No matching objects found."
 
 	echo.
 	echo.
 
 	echo System32 permissions - backdoor windows binaries:
-	accesschk.exe -accepteula -dvuqw %%~k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
-	accesschk.exe -accepteula -vuqsw %%~k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -dvuqw %%k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
 
 	echo.
 	echo.
 
 	echo All users startup permissions - execute binary with permissions of logged user:
-	accesschk.exe -accepteula -dvuqw %%~k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
-	accesschk.exe -accepteula -vuqsw %%~k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -dvuqw %%k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
 
 	echo.
 	echo.
 
 	echo Startup executables permissions - backdoor startup binaries and check if they are also run at startup by other users:
-	accesschk.exe -accepteula -vuqsw %%~k "%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%k "%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
 	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
 		for /f "tokens=1,*" %%c in ('echo %%b') do (
 			echo %%d | findstr /L /C:" -" 1>nul
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			)
@@ -118,14 +118,14 @@ for %%k in (%*) do (
 			echo %%d | findstr /L /C:" -" 1>nul
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			)
@@ -136,14 +136,14 @@ for %%k in (%*) do (
 			echo %%d | findstr /L /C:" -" 1>nul
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			)
@@ -154,14 +154,14 @@ for %%k in (%*) do (
 			echo %%d | findstr /L /C:" -" 1>nul
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
-					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
-						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%e" | findstr /v /l /i /c:"No matching objects found."
 					)
 				)
 			)
@@ -178,12 +178,12 @@ for %%k in (%*) do (
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			)
 		)
@@ -194,12 +194,12 @@ for %%k in (%*) do (
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			)
 		)
@@ -210,12 +210,12 @@ for %%k in (%*) do (
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			)
 		)
@@ -226,12 +226,12 @@ for %%k in (%*) do (
 			if errorlevel 1 (
 				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			) ELSE (
 				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
 					set tpath=%%~dpe
-					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
 				)
 			)
 		)
@@ -243,7 +243,7 @@ for %%k in (%*) do (
 	echo Service binary permissions - backdoor service binary:
 	for /f "tokens=2 delims='='" %%x in ('wmic service list full^|find /i "pathname"^|find /i /v "system32"') do (
 		for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do (
-			for /f "tokens=*" %%y in ('cmd.exe /c accesschk.exe -accepteula -vuqsw %%~k "%%z*"') do (
+			for /f "tokens=*" %%y in ('cmd.exe /c accesschk.exe -accepteula -vuqsw %%k "%%z*"') do (
 				echo %%y | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%y)
 			)
 		)
@@ -255,7 +255,7 @@ for %%k in (%*) do (
 	echo Service directory permissions - try DLL injection:
 	for /f "tokens=2 delims='='" %%x in ('wmic service list full^|find /i "pathname"^|find /i /v "system32"') do for /f eol^=^"^ delims^=^" %%y in ('echo %%x') do (
 		set tpath=%%~dpy
-		for /f "tokens=*" %%z in ('cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!"') do (
+		for /f "tokens=*" %%z in ('cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!"') do (
 			echo %%z | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%z)
 		)
 	)
@@ -266,7 +266,7 @@ for %%k in (%*) do (
 	echo Process binary permissions - backdoor process binary:
 	for /f "tokens=2 delims='='" %%x in ('wmic process list full^|find /i "executablepath"^|find /i /v "system32"^|find ":"') do (
 		for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do (
-			for /f "tokens=*" %%y in ('cmd.exe /c accesschk.exe -accepteula -vuqsw %%~k "%%z*"') do (
+			for /f "tokens=*" %%y in ('cmd.exe /c accesschk.exe -accepteula -vuqsw %%k "%%z*"') do (
 				echo %%y | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%y)
 			)
 		)
@@ -278,7 +278,7 @@ for %%k in (%*) do (
 	echo Process directory permissions - try DLL injection:
 	for /f "tokens=2 delims='='" %%x in ('wmic process list full^|find /i "executablepath"^|find /i /v "system32"^|find ":"') do for /f eol^=^"^ delims^=^" %%y in ('echo %%x') do (
 		set tpath=%%~dpy
-		for /f "tokens=*" %%z in ('cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!"') do (
+		for /f "tokens=*" %%z in ('cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!"') do (
 			echo %%z | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%z)
 		)
 	)
@@ -288,7 +288,7 @@ for %%k in (%*) do (
 
 	echo Loaded DLLs permissions - backdoor DLL:
 	for /f "tokens=2,*" %%a in ('Listdlls.exe -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
-		cmd.exe /c accesschk.exe -accepteula -vuqsw %%~k "%%b*" | findstr /v /l /i /c:"No matching objects found."
+		cmd.exe /c accesschk.exe -accepteula -vuqsw %%k "%%b*" | findstr /v /l /i /c:"No matching objects found."
 	)
 
 	echo.
@@ -296,7 +296,7 @@ for %%k in (%*) do (
 
 	echo Registry keys permissions - if there is a path in a value of registry key you can try for example HTTP to SMB relay - Potato:
 	echo HKLM:
-	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%~k hklm^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
+	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%k hklm^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
 		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
 			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
 			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
@@ -304,7 +304,7 @@ for %%k in (%*) do (
 	)
 
 	echo HKCU:
-	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%~k hkcu^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
+	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%k hkcu^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
 		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
 			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
 			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
@@ -312,7 +312,7 @@ for %%k in (%*) do (
 	)
 
 	echo HKU:
-	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%~k hku^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
+	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%k hku^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
 		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
 			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
 			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
@@ -532,18 +532,18 @@ cmd.exe /c icacls "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
 for %%k in (%*) do (
 	echo.
 	echo ----------------------------------------------------------------------------
-	echo Checking possibly weak permissions for %%~k group:
+	echo Checking possibly weak permissions for %%k group:
 	echo.
 	echo Checking writable registry keys - eg. changing paths:
 	echo.
 	echo HKLM:
-	accesschk.exe -accepteula -kvuqsw %%~k hklm
+	accesschk.exe -accepteula -kvuqsw %%k hklm
 	echo.
 	echo HKCU:
-	accesschk.exe -accepteula -kvuqsw %%~k hkcu
+	accesschk.exe -accepteula -kvuqsw %%k hkcu
 	echo.
 	echo HKU:
-	accesschk.exe -accepteula -kvuqsw %%~k hku
+	accesschk.exe -accepteula -kvuqsw %%k hku
 
 	if "%long%" == "yes" (
 		echo ----------------------------------------------------------------------------
@@ -553,8 +553,8 @@ for %%k in (%*) do (
 		for /f %%x in ('wmic logicaldisk get name^| more') do (
 			set tdrive=%%x
 			if "!tdrive:~1,2!" == ":" (
-				accesschk.exe -accepteula -uwdqs %%~k %%x
-				accesschk.exe -accepteula -uwqs %%~k %%x\*.*
+				accesschk.exe -accepteula -uwdqs %%k %%x
+				accesschk.exe -accepteula -uwqs %%k %%x\*.*
 			)
 		)
 		echo.
