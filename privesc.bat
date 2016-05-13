@@ -1,12 +1,332 @@
 @echo off
 
-setlocal EnableDelayedExpansion
 
-REM if checks that takes much more time should be executed
+:: set the mode - full or lhf (low hanging fruits)
+set mode=lhf
+
+:: if long execution checks should be done
 set long=no
 
-echo This batch needs accesschk.exe, Listdlls.exe, pipelist.exe from Sysinternals for best results.
+
+setlocal EnableDelayedExpansion
+
+if [%1]==[] (
+	echo.
+	echo Usage:
+	echo %0 "Users group name" ["Next group name"]
+	echo.
+	echo Example:
+	echo %0 Users Everyone ^> ./output.txt
+	goto :finish
+)
+
+if "%mode%" NEQ "lhf" (goto :full)
+
+echo Date of last applied patch - just use public exploits if not patched:
+for /f %%a in ('wmic qfe get InstalledOn') do (
+   set "var=%%a"
+   for /f "tokens=1-3 delims=/" %%b in ("!var!") do set "aaa%%d%%b%%c=%%a"
+)
+for /f "tokens=1,* delims==" %%x in ('set aaa^| findstr /v /l /c:"InstalledOn"^|sort /r') do (
+	echo %%y
+	goto :eol
+)
+:eol
+
 echo.
+echo.
+
+echo Files that may contain Administrator password - you know what to do with this one:
+type %SystemDrive%\sysprep.inf 2>NUL
+type %SystemDrive%\sysprep\sysprep.xml 2>NUL
+type "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
+type "%WINDIR%\Panther\Unattended.xml" 2>NUL
+findstr /S cpassword \\127.0.0.1\sysvol\*.xml
+
+echo.
+echo.
+
+echo Checking AlwaysInstallElevated - install *.msi files as NT AUTHORITY\SYSTEM - exploit/windows/local/always_install_elevated:
+reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated 2>NUL
+reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated 2>NUL
+
+echo.
+echo.
+
+echo Services with space in path and not enclosed with quotes - if you have permissions run executable from different directory - exploit/windows/local/trusted_service_path:
+for /f "tokens=2" %%n in ('sc query state^= all^| findstr SERVICE_NAME') do (
+	for /f "delims=: tokens=1*" %%r in ('sc qc "%%~n" ^| findstr BINARY_PATH_NAME ^| findstr /i /v /l /c:"c:\windows" ^| findstr /v /c:""""') do (
+		echo %%~s | findstr /r /c:"^ .* .* .*$" >nul 2>&1 && (echo %%~s)
+	)
+)
+
+echo.
+echo.
+
+for %%k in (%*) do (
+
+	echo -----------------------------------------------------
+	echo.
+	echo Checking possibly weak permissions for %%~k group:
+	echo.
+
+	echo Services and their registries permissions - change BINARY_PATH_NAME of a service or path to the binary in the registry:
+	accesschk.exe -accepteula -uwcqv %%~k * | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -kvuqsw %%~k hklm\System\CurrentControlSet\services | findstr /v /l /i /c:"No matching objects found."
+
+	echo.
+	echo.
+
+	echo System32 permissions - backdoor windows binaries:
+	accesschk.exe -accepteula -dvuqw %%~k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%~k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
+
+	echo.
+	echo.
+
+	echo All users startup permissions - execute binary with permissions of logged user:
+	accesschk.exe -accepteula -dvuqw %%~k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%~k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+
+	echo.
+	echo.
+
+	echo Startup executables permissions - backdoor startup binaries and check if they are also run at startup by other users:
+	accesschk.exe -accepteula -vuqsw %%~k "%USERPROFILE%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			)
+		)
+	)
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			)
+		)
+	)
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			)
+		)
+	)
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					echo %%e | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%~k %%e | findstr /v /l /i /c:"No matching objects found.") || (
+						cmd.exe /c accesschk.exe -accepteula -vuqw %%~k "%%e" | findstr /v /l /i /c:"No matching objects found."
+					)
+				)
+			)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo Startup executables directory permissions - try DLL injection:
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			)
+		)
+	)
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			)
+		)
+	)
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			)
+		)
+	)
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+		for /f "tokens=1,*" %%c in ('echo %%b') do (
+			echo %%d | findstr /L /C:" -" 1>nul
+			if errorlevel 1 (
+				for /f "tokens=1 delims='/'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			) ELSE (
+				for /f "tokens=1 delims='-'" %%e in ('echo %%d') do (
+					set tpath=%%~dpe
+					cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects found."
+				)
+			)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo Service binary permissions - backdoor service binary:
+	for /f "tokens=2 delims='='" %%x in ('wmic service list full^|find /i "pathname"^|find /i /v "system32"') do (
+		for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do (
+			for /f "tokens=*" %%y in ('cmd.exe /c accesschk.exe -accepteula -vuqsw %%~k "%%z*"') do (
+				echo %%y | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%y)
+			)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo Service directory permissions - try DLL injection:
+	for /f "tokens=2 delims='='" %%x in ('wmic service list full^|find /i "pathname"^|find /i /v "system32"') do for /f eol^=^"^ delims^=^" %%y in ('echo %%x') do (
+		set tpath=%%~dpy
+		for /f "tokens=*" %%z in ('cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!"') do (
+			echo %%z | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%z)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo Process binary permissions - backdoor process binary:
+	for /f "tokens=2 delims='='" %%x in ('wmic process list full^|find /i "executablepath"^|find /i /v "system32"^|find ":"') do (
+		for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do (
+			for /f "tokens=*" %%y in ('cmd.exe /c accesschk.exe -accepteula -vuqsw %%~k "%%z*"') do (
+				echo %%y | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%y)
+			)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo Process directory permissions - try DLL injection:
+	for /f "tokens=2 delims='='" %%x in ('wmic process list full^|find /i "executablepath"^|find /i /v "system32"^|find ":"') do for /f eol^=^"^ delims^=^" %%y in ('echo %%x') do (
+		set tpath=%%~dpy
+		for /f "tokens=*" %%z in ('cmd.exe /c accesschk.exe -accepteula -dvuqw %%~k "!tpath:~,-1!"') do (
+			echo %%z | findstr /v /l /i /c:"No matching objects found." >nul 2>&1 && (echo %%z)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo Loaded DLLs permissions - backdoor DLL:
+	for /f "tokens=2,*" %%a in ('Listdlls.exe -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
+		cmd.exe /c accesschk.exe -accepteula -vuqsw %%~k "%%b*" | findstr /v /l /i /c:"No matching objects found."
+	)
+
+	echo.
+	echo.
+
+	echo Registry keys permissions - if there is a path in a value of registry key you can try for example HTTP to SMB relay - Potato:
+	echo HKLM:
+	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%~k hklm^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
+		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
+			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
+			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
+		)
+	)
+
+	echo HKCU:
+	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%~k hkcu^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
+		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
+			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
+			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
+		)
+	)
+
+	echo HKU:
+	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%~k hku^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
+		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
+			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
+			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
+		)
+	)
+	
+	echo.
+	echo.
+
+)
+
+goto :finish
+
+:full
+if "%mode%" NEQ "full" (goto :finish)
+
 echo System Information (use windows-exploit-suggester.py to check for local exploits):
 echo.
 systeminfo 2>NUL
@@ -102,8 +422,8 @@ echo ---------------------------------------------------------------------------
 echo.
 echo Files that may contain Administrator password:
 echo.
-type C:\sysprep.inf 2>NUL
-type C:\sysprep\sysprep.xml 2>NUL
+type %SystemDrive%\sysprep.inf 2>NUL
+type %SystemDrive%\sysprep\sysprep.xml 2>NUL
 type "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
 type "%WINDIR%\Panther\Unattended.xml" 2>NUL
 findstr /S cpassword \\127.0.0.1\sysvol\*.xml
@@ -140,7 +460,11 @@ echo.
 echo Checking file permissions of running services (File backdooring - exploit/windows/local/service_permissions):
 echo https://technet.microsoft.com/pl-pl/library/cc753525(v=ws.10).aspx - shows permissions definition
 echo.
-for /f "tokens=2 delims='='" %%x in ('wmic service list full^|find /i "pathname"^|find /i /v "system32"') do (for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do cmd.exe /c icacls "%%z" ^| more)
+for /f "tokens=2 delims='='" %%x in ('wmic service list full^|find /i "pathname"^|find /i /v "system32"') do (
+	for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do (
+		cmd.exe /c icacls "%%z" ^| more
+	)
+)
 echo.
 echo ----------------------------------------------------------------------------
 echo.
@@ -157,7 +481,11 @@ echo.
 echo Checking file permissions of running processes (File backdooring - maybe the same files start automatically when Administrator logs in):
 echo https://technet.microsoft.com/pl-pl/library/cc753525(v=ws.10).aspx - shows permissions definition
 echo.
-for /f "tokens=2 delims='='" %%x in ('wmic process list full^|find /i "executablepath"^|find /i /v "system32"^|find ":"') do (for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do cmd.exe /c icacls "%%z" ^| more)
+for /f "tokens=2 delims='='" %%x in ('wmic process list full^|find /i "executablepath"^|find /i /v "system32"^|find ":"') do (
+	for /f eol^=^"^ delims^=^" %%z in ('echo %%x') do (
+		cmd.exe /c icacls "%%z" ^| more
+	)
+)
 echo.
 echo ----------------------------------------------------------------------------
 echo.
@@ -181,8 +509,8 @@ echo ---------------------------------------------------------------------------
 echo.
 echo List unsigned DLLs loaded by processes and their privileges (good to check also "not found" DLLs and registry keys using Procmon.exe):
 echo.
-for /f "tokens=2 delims=:" %%x in ('Listdlls.exe -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
-	cmd.exe /c icacls "C:%%x" ^| more
+for /f "tokens=2,*" %%a in ('Listdlls.exe -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
+	cmd.exe /c icacls "%%b" ^| more
 )
 echo.
 echo ----------------------------------------------------------------------------
@@ -198,53 +526,40 @@ echo Checking startup directory permissions for all users (executing binaries wi
 echo https://technet.microsoft.com/pl-pl/library/cc753525(v=ws.10).aspx - shows permissions definition
 echo.
 cmd.exe /c icacls "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup" ^| more
-echo.
-echo ----------------------------------------------------------------------------
-echo.
-echo Checking all possibly exploitable services and their registries (eg. changing paths):
-echo.
-accesschk.exe -accepteula -uwcqv Users *
-accesschk.exe -accepteula -uwcqv "Authenticated Users" *
-accesschk.exe -accepteula -uwcqv Everyone *
-accesschk.exe -accepteula -kvuqsw "Authenticated Users" hklm\System\CurrentControlSet\services
-accesschk.exe -accepteula -kvuqsw "Users" hklm\System\CurrentControlSet\services
-accesschk.exe -accepteula -kvuqsw "Everyone" hklm\System\CurrentControlSet\services
-echo.
-echo ----------------------------------------------------------------------------
-echo.
-echo Checking all possibly exploitable registries (eg. changing paths):
-echo.
-echo HKLM:
-accesschk.exe -accepteula -kvuqsw "Authenticated Users" hklm
-accesschk.exe -accepteula -kvuqsw "Users" hklm
-accesschk.exe -accepteula -kvuqsw "Everyone" hklm
-echo.
-echo HKCU:
-accesschk.exe -accepteula -kvuqsw "Authenticated Users" hkcu
-accesschk.exe -accepteula -kvuqsw "Users" hkcu
-accesschk.exe -accepteula -kvuqsw "Everyone" hkcu
-echo.
-echo HKU:
-accesschk.exe -accepteula -kvuqsw "Authenticated Users" hku
-accesschk.exe -accepteula -kvuqsw "Users" hku
-accesschk.exe -accepteula -kvuqsw "Everyone" hku
-echo.
+
+for %%k in (%*) do (
+	echo.
+	echo ----------------------------------------------------------------------------
+	echo Checking possibly weak permissions for %%~k group:
+	echo.
+	echo Checking writable registry keys - eg. changing paths:
+	echo.
+	echo HKLM:
+	accesschk.exe -accepteula -kvuqsw %%~k hklm
+	echo.
+	echo HKCU:
+	accesschk.exe -accepteula -kvuqsw %%~k hkcu
+	echo.
+	echo HKU:
+	accesschk.exe -accepteula -kvuqsw %%~k hku
+
+	if "%long%" == "yes" (
+		echo ----------------------------------------------------------------------------
+		echo.
+		echo Weak file/directory permissions on all drives:
+		echo.
+		for /f %%x in ('wmic logicaldisk get name^| more') do (
+			set tdrive=%%x
+			if "!tdrive:~1,2!" == ":" (
+				accesschk.exe -accepteula -uwdqs %%~k %%x
+				accesschk.exe -accepteula -uwqs %%~k %%x\*.*
+			)
+		)
+		echo.
+	)
+)
 
 if "%long%" == "yes" (
-	echo ----------------------------------------------------------------------------
-	echo.
-	echo Weak file/directory permissions on all drives:
-	echo.
-	for /f %%x in ('wmic logicaldisk get name^| more') do (
-		set tdrive=%%x
-		if "!tdrive:~1,2!" == ":" (
-			accesschk.exe -accepteula -uwdqs Users %%x
-			accesschk.exe -accepteula -uwdqs "Authenticated Users" %%x
-			accesschk.exe -accepteula -uwqs Users %%x\*.*
-			accesschk.exe -accepteula -uwqs "Authenticated Users" %%x\*.*
-		)
-	)
-	echo.
 	echo ----------------------------------------------------------------------------
 	echo.
 	echo Looking for sensitive registry keys:
@@ -268,3 +583,6 @@ if "%long%" == "yes" (
 	)
 	echo.
 )
+
+:finish
+
