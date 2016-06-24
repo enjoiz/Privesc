@@ -87,8 +87,8 @@ for %%k in (%*) do (
 	echo.
 
 	echo All users startup permissions - execute binary with permissions of logged user:
-	accesschk.exe -accepteula -dvuqw %%k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
-	accesschk.exe -accepteula -vuqsw %%k "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -dvuqw %%k "%ProgramData%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%k "%ProgramData%\Microsoft\Windows\Start Menu\Programs\Startup" | findstr /v /l /i /c:"No matching objects found."
 
 	echo.
 	echo.
