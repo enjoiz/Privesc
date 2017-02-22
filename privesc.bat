@@ -22,6 +22,10 @@ if [%1]==[] (
 	goto :finish
 )
 
+REG ADD "HKCU\Software\Sysinternals\AccessChk" /v EulaAccepted /t REG_DWORD /d 1 /f > NUL 2>&1
+REG ADD "HKCU\Software\Sysinternals\ListDLLs" /v EulaAccepted /t REG_DWORD /d 1 /f > NUL 2>&1
+REG ADD "HKCU\Software\Sysinternals\PipeList" /v EulaAccepted /t REG_DWORD /d 1 /f > NUL 2>&1
+
 if "%mode%" NEQ "lhf" (goto :full)
 
 echo Date of last applied patch - just use public exploits if not patched:
@@ -188,7 +192,7 @@ for %%k in (%*) do (
 			)
 		)
 	)
-	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce^|findstr /v /l /i /c:"HKEY_"') do (
 		for /f "tokens=1,*" %%c in ('echo %%b') do (
 			echo %%d | findstr /L /C:" -" 1>nul
 			if errorlevel 1 (
@@ -204,7 +208,7 @@ for %%k in (%*) do (
 			)
 		)
 	)
-	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
 		for /f "tokens=1,*" %%c in ('echo %%b') do (
 			echo %%d | findstr /L /C:" -" 1>nul
 			if errorlevel 1 (
@@ -220,7 +224,7 @@ for %%k in (%*) do (
 			)
 		)
 	)
-	for /f "tokens=1,* delims='_'" %%a in ('reg query HKLM\Software\Microsoft\Windows\CurrentVersion\Run^|findstr /v /l /i /c:"HKEY_"') do (
+	for /f "tokens=1,* delims='_'" %%a in ('reg query HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce^|findstr /v /l /i /c:"HKEY_"') do (
 		for /f "tokens=1,*" %%c in ('echo %%b') do (
 			echo %%d | findstr /L /C:" -" 1>nul
 			if errorlevel 1 (
@@ -287,15 +291,54 @@ for %%k in (%*) do (
 	echo.
 
 	echo Loaded DLLs permissions - backdoor DLL:
-	for /f "tokens=2,*" %%a in ('Listdlls.exe -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
+	for /f "tokens=2,*" %%a in ('Listdlls.exe -accepteula -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
 		cmd.exe /c accesschk.exe -accepteula -vuqsw %%k "%%b*" | findstr /v /l /i /c:"No matching objects found."
 	)
 
 	echo.
 	echo.
 
-	echo Registry keys permissions - if there is a path in a value of registry key you can try for example HTTP to SMB relay - Potato:
-	echo HKLM:
+	echo Scheduled tasks binary permissions - backdoor scheduled task binary:
+	for /f "delims=: tokens=1*" %%a in ('schtasks /query /fo LIST /V ^| findstr "\\" ^| findstr "\." ^| findstr /i /v /l /c:"c:\windows"') do (
+		echo %%~b | findstr /L /C:" -" 1>nul
+		if errorlevel 1 (
+			for /f "tokens=1 delims='/'" %%c in ('echo %%~b') do (
+				echo %%c | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%c | findstr /v /l /i /c:"No matching objects found.") || (
+					cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%c" | findstr /v /l /i /c:"No matching objects found."
+				)
+			)
+		) ELSE (
+			for /f "tokens=1 delims='-'" %%c in ('echo %%~b') do (
+				echo %%c | find """" >nul 2>&1 && (cmd.exe /c accesschk.exe -accepteula -vuqw %%k %%c | findstr /v /l /i /c:"No matching objects found.") || (
+					cmd.exe /c accesschk.exe -accepteula -vuqw %%k "%%c" | findstr /v /l /i /c:"No matching objects found."
+				)
+			)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo Scheduled tasks directory permissions - try DLL injection:
+	for /f "delims=: tokens=1*" %%a in ('schtasks /query /fo LIST /V ^| findstr "\\" ^| findstr "\." ^| findstr /i /v /l /c:"c:\windows"') do (
+		echo %%~b | findstr /L /C:" -" 1>nul
+		if errorlevel 1 (
+			for /f "tokens=1 delims='/'" %%c in ('echo %%~b') do (
+				set tpath=%%~dpc
+				cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects 
+			)
+		) ELSE (
+			for /f "tokens=1 delims='-'" %%c in ('echo %%~b') do (
+				set tpath=%%~dpc
+				cmd.exe /c accesschk.exe -accepteula -dvuqw %%k "!tpath:~,-1!" | findstr /v /l /i /c:"No matching objects
+			)
+		)
+	)
+
+	echo.
+	echo.
+
+	echo HKLM registry keys permissions - if there is a path in a value of registry key you can try for example HTTP to SMB relay - Potato:
 	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%k hklm^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
 		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
 			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
@@ -303,21 +346,6 @@ for %%k in (%*) do (
 		)
 	)
 
-	echo HKCU:
-	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%k hkcu^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
-		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
-			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
-			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
-		)
-	)
-
-	echo HKU:
-	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%k hku^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
-		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
-			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
-			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
-		)
-	)
 	
 	echo.
 	echo.
@@ -503,7 +531,7 @@ echo ---------------------------------------------------------------------------
 echo.
 echo Checking named pipes permissions (it depends on what named pipe does with written data):
 echo.
-for /f "tokens=1" %%x in ('pipelist.exe') do (
+for /f "tokens=1" %%x in ('pipelist.exe -accepteula') do (
 	accesschk.exe -accepteula \pipe\%%x
 )
 echo.
@@ -511,7 +539,7 @@ echo ---------------------------------------------------------------------------
 echo.
 echo List unsigned DLLs loaded by processes and their privileges (good to check also "not found" DLLs and registry keys using Procmon.exe):
 echo.
-for /f "tokens=2,*" %%a in ('Listdlls.exe -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
+for /f "tokens=2,*" %%a in ('Listdlls.exe -accepteula -u^|find /i "0x"^|find /i /v "system32"^|find /i /v "winsxs"') do (
 	cmd.exe /c icacls "%%b" ^| more
 )
 echo.
@@ -534,16 +562,8 @@ for %%k in (%*) do (
 	echo ----------------------------------------------------------------------------
 	echo Checking possibly weak permissions for %%k group:
 	echo.
-	echo Checking writable registry keys - eg. changing paths:
-	echo.
-	echo HKLM:
+	echo Checking writable HKLM registry keys - eg. changing paths:
 	accesschk.exe -accepteula -kvuqsw %%k hklm
-	echo.
-	echo HKCU:
-	accesschk.exe -accepteula -kvuqsw %%k hkcu
-	echo.
-	echo HKU:
-	accesschk.exe -accepteula -kvuqsw %%k hku
 
 	if "%long%" == "yes" (
 		echo ----------------------------------------------------------------------------
@@ -587,4 +607,5 @@ if "%long%" == "yes" (
 )
 
 :finish
+
 
