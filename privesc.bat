@@ -346,7 +346,6 @@ for %%k in (%*) do (
 		)
 	)
 
-	
 	echo.
 	echo.
 
@@ -607,5 +606,3 @@ if "%long%" == "yes" (
 )
 
 :finish
-
-
