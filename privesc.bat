@@ -47,7 +47,6 @@ type %SystemDrive%\sysprep.inf 2>NUL
 type %SystemDrive%\sysprep\sysprep.xml 2>NUL
 type "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
 type "%WINDIR%\Panther\Unattended.xml" 2>NUL
-findstr /S cpassword \\127.0.0.1\sysvol\*.xml
 
 echo.
 echo.
