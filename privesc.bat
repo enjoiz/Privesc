@@ -9,7 +9,6 @@ set mode=lhf
 :: if long execution checks should be done
 set long=no
 
-
 setlocal EnableDelayedExpansion
 
 if [%1]==[] (
@@ -45,8 +44,12 @@ echo.
 echo Files that may contain Administrator password - you know what to do with this one:
 type %SystemDrive%\sysprep.inf 2>NUL
 type %SystemDrive%\sysprep\sysprep.xml 2>NUL
+type %WINDIR%\system32\sysprep\Unattend.xml 2>NUL
+type %WINDIR%\system32\sysprep\Panther\Unattend.xml 2>NUL
 type "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
 type "%WINDIR%\Panther\Unattended.xml" 2>NUL
+type "%WINDIR%\Panther\Unattend\Unattend.xml" 2>NUL
+type "%WINDIR%\Panther\Unattend.xml" 2>NUL
 
 echo.
 echo.
@@ -54,6 +57,21 @@ echo.
 echo Checking AlwaysInstallElevated - install *.msi files as NT AUTHORITY\SYSTEM - exploit/windows/local/always_install_elevated:
 reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated 2>NUL
 reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer\AlwaysInstallElevated 2>NUL
+
+echo.
+echo.
+
+echo.
+echo.
+
+echo Checking privileges - rotten potato:
+whoami /priv | findstr /i /C:"SeImpersonatePrivilege" /C:"SeTcbPrivilege" /C:"SeBackupPrivilege" /C:"SeRestorePrivilege" /C:"SeCreateTokenPrivilege" /C:"SeLoadDriverPrivilege" /C:"SeTakeOwnershipPrivilege" /C:"SeDebugPrivilege"
+
+echo.
+echo.
+
+echo Checking if WSUS uses HTTP - eg. WSUXploit:
+reg query HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\WindowsUpdate\ | find /i "wuserver" | find /i "http://"
 
 echo.
 echo.
@@ -85,6 +103,14 @@ for %%k in (%*) do (
 	echo System32 permissions - backdoor windows binaries:
 	accesschk.exe -accepteula -dvuqw %%k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
 	accesschk.exe -accepteula -vuqsw %%k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
+
+	echo.
+	echo.
+
+	echo PATH variable entries permissions - place binary or DLL to execute instead of legitimate
+	for %%A in ("%path:;=";"%") do (
+		accesschk.exe -accepteula -dvuqw %%k "%%~A" | findstr /v /l /i /c:"No matching objects found."
+	)
 
 	echo.
 	echo.
@@ -336,18 +362,6 @@ for %%k in (%*) do (
 
 	echo.
 	echo.
-
-	echo HKLM registry keys permissions - if there is a path in a value of registry key you can try for example HTTP to SMB relay - Potato:
-	for /f "tokens=1,*" %%a in ('accesschk.exe -accepteula -kuqsw %%k hklm^|findstr /v /l /i /c:"No matching objects found."^|findstr /v /l /i /c:"\\Tracing\\"') do (
-		for /f "tokens=2,*" %%c in ('reg query "%%b"^|findstr /v /l /c:"HKEY_"') do (
-			echo %%d | findstr /l /i /c:"\\" >nul 2>&1 && (reg query "%%b")
-			echo %%d | findstr /l /i /c:":/" >nul 2>&1 && (reg query "%%b")
-		)
-	)
-
-	echo.
-	echo.
-
 )
 
 goto :finish
@@ -452,9 +466,12 @@ echo Files that may contain Administrator password:
 echo.
 type %SystemDrive%\sysprep.inf 2>NUL
 type %SystemDrive%\sysprep\sysprep.xml 2>NUL
+type %WINDIR%\system32\sysprep\Unattend.xml 2>NUL
+type %WINDIR%\system32\sysprep\Panther\Unattend.xml 2>NUL
 type "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
 type "%WINDIR%\Panther\Unattended.xml" 2>NUL
-findstr /S cpassword \\127.0.0.1\sysvol\*.xml
+type "%WINDIR%\Panther\Unattend\Unattend.xml" 2>NUL
+type "%WINDIR%\Panther\Unattend.xml" 2>NUL
 echo.
 echo ----------------------------------------------------------------------------
 echo.
@@ -543,6 +560,13 @@ for /f "tokens=2,*" %%a in ('Listdlls.exe -accepteula -u^|find /i "0x"^|find /i 
 echo.
 echo ----------------------------------------------------------------------------
 echo.
+echo PATH variable entries permissions - place binary or DLL to execute instead of legitimate
+for %%A in ("%path:;=";"%") do (
+	cmd.exe /c icacls "%%~A" ^| more
+)
+echo.
+echo ----------------------------------------------------------------------------
+echo.
 echo Checking system32 permissions misconfiguration (binaries that are good to backdoor - system32sethc.exe (Sticky Keys), system32utilman.exe):
 echo https://technet.microsoft.com/pl-pl/library/cc753525(v=ws.10).aspx - shows permissions definition
 echo.
@@ -605,3 +629,5 @@ if "%long%" == "yes" (
 )
 
 :finish
+
+
