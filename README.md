@@ -1,7 +1,7 @@
 ## Privesc
 
-Windows batch script that finds misconfiguration issues which can lead to privilege escalation.</br>
-Script uses accesschk.exe from Sysinternals. This executable is mandatory.</br>
+Windows batch and PowerShell script that finds misconfiguration issues which can lead to privilege escalation.</br>
+Batch script uses accesschk.exe from Sysinternals. This executable is mandatory.</br>
 Few checks also use Listdlls.exe and pipelist.exe from Sysinternals. Those executables are optional.
 
 ## Usage:
