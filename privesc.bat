@@ -42,14 +42,25 @@ echo.
 echo.
 
 echo Files that may contain Administrator password - you know what to do with this one:
-type %SystemDrive%\sysprep.inf 2>NUL
-type %SystemDrive%\sysprep\sysprep.xml 2>NUL
-type %WINDIR%\system32\sysprep\Unattend.xml 2>NUL
-type %WINDIR%\system32\sysprep\Panther\Unattend.xml 2>NUL
-type "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
-type "%WINDIR%\Panther\Unattended.xml" 2>NUL
-type "%WINDIR%\Panther\Unattend\Unattend.xml" 2>NUL
-type "%WINDIR%\Panther\Unattend.xml" 2>NUL
+if exist %SystemDrive%\sysprep.inf echo %SystemDrive%\sysprep.inf 2>NUL
+if exist %SystemDrive%\sysprep\sysprep.xml echo %SystemDrive%\sysprep\sysprep.xml 2>NUL
+if exist %WINDIR%\system32\sysprep\Unattend.xml echo %WINDIR%\system32\sysprep\Unattend.xml 2>NUL
+if exist %WINDIR%\system32\sysprep\Panther\Unattend.xml echo %WINDIR%\system32\sysprep\Panther\Unattend.xml 2>NUL
+if exist "%WINDIR%\Panther\Unattend\Unattended.xml" echo "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
+if exist "%WINDIR%\Panther\Unattended.xml" echo "%WINDIR%\Panther\Unattended.xml" 2>NUL
+if exist "%WINDIR%\Panther\Unattend\Unattend.xml" echo "%WINDIR%\Panther\Unattend\Unattend.xml" 2>NUL
+if exist "%WINDIR%\Panther\Unattend.xml" echo "%WINDIR%\Panther\Unattend.xml" 2>NUL
+if exist %SystemDrive%\MININT\SMSOSD\OSDLOGS\VARIABLES.DAT echo %SystemDrive%\MININT\SMSOSD\OSDLOGS\VARIABLES.DAT 2>NUL
+if exist %WINDIR%\panther\setupinfo echo %WINDIR%\panther\setupinfo 2>NUL
+if exist %WINDIR%\panther\setupinfo.bak echo %WINDIR%\panther\setupinfo.bak 2>NUL
+if exist %SystemDrive%\unattend.xml echo %SystemDrive%\unattend.xml 2>NUL
+if exist %WINDIR%\system32\sysprep.inf echo %WINDIR%\system32\sysprep.inf 2>NUL
+if exist %WINDIR%\system32\sysprep\sysprep.xml echo %WINDIR%\system32\sysprep\sysprep.xml 2>NUL
+if exist %WINDIR%\Microsoft.NET\Framework64\v4.0.30319\Config\web.config echo %WINDIR%\Microsoft.NET\Framework64\v4.0.30319\Config\web.config 2>NUL
+if exist %SystemDrive%\inetpub\wwwroot\web.config echo %SystemDrive%\inetpub\wwwroot\web.config 2>NUL
+if exist "%AllUsersProfile%\Application Data\McAfee\Common Framework\SiteList.xml" echo "%AllUsersProfile%\Application Data\McAfee\Common Framework\SiteList.xml" 2>NUL
+reg query HKEY_LOCAL_MACHINE\SOFTWARE\RealVNC\WinVNC4 /v password 2>NUL
+reg query HKCU\Software\SimonTatham\PuTTY\Sessions 2>NUL
 
 echo.
 echo.
@@ -86,6 +97,16 @@ for /f "tokens=2" %%n in ('sc query state^= all^| findstr SERVICE_NAME') do (
 echo.
 echo.
 
+echo Checking if SCCM is installed - installers are run with SYSTEM privileges, many are vulnerable to DLL Sideloading:
+if exist C:\Windows\CCM\SCClient.exe (
+    echo Installed.
+) else (
+    echo Not Installed.
+)
+
+echo.
+echo.
+
 for %%k in (%*) do (
 
 	echo -----------------------------------------------------
@@ -99,10 +120,31 @@ for %%k in (%*) do (
 
 	echo.
 	echo.
+	
+	echo Uninstall registries permissions - change binary paths:
+	accesschk.exe -accepteula -kvuqsw %%k HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall | findstr /v /l /i /c:"No matching objects found."
+
+	echo.
+	echo.
 
 	echo System32 permissions - backdoor windows binaries:
 	accesschk.exe -accepteula -dvuqw %%k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
 	accesschk.exe -accepteula -vuqsw %%k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
+
+	echo.
+	echo.
+	
+	echo Windows Temp permissions - trying DLL Sideloading in each created directory:
+	accesschk.exe -accepteula -dvuqr %%k "C:\Windows\system32" | findstr /v /l /i /c:"No matching objects found."
+	
+	echo.
+	echo.
+	
+	echo Program Files permissions - backdoor windows binaries:
+	accesschk.exe -accepteula -dvuqw %%k "%ProgramFiles%" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%k "%ProgramFiles%" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -dvuqw %%k "%ProgramFiles(x86)%" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%k "%ProgramFiles(x86)%" | findstr /v /l /i /c:"No matching objects found."
 
 	echo.
 	echo.
@@ -464,14 +506,25 @@ echo ---------------------------------------------------------------------------
 echo.
 echo Files that may contain Administrator password:
 echo.
-type %SystemDrive%\sysprep.inf 2>NUL
-type %SystemDrive%\sysprep\sysprep.xml 2>NUL
-type %WINDIR%\system32\sysprep\Unattend.xml 2>NUL
-type %WINDIR%\system32\sysprep\Panther\Unattend.xml 2>NUL
-type "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
-type "%WINDIR%\Panther\Unattended.xml" 2>NUL
-type "%WINDIR%\Panther\Unattend\Unattend.xml" 2>NUL
-type "%WINDIR%\Panther\Unattend.xml" 2>NUL
+if exist %SystemDrive%\sysprep.inf echo %SystemDrive%\sysprep.inf 2>NUL
+if exist %SystemDrive%\sysprep\sysprep.xml echo %SystemDrive%\sysprep\sysprep.xml 2>NUL
+if exist %WINDIR%\system32\sysprep\Unattend.xml echo %WINDIR%\system32\sysprep\Unattend.xml 2>NUL
+if exist %WINDIR%\system32\sysprep\Panther\Unattend.xml echo %WINDIR%\system32\sysprep\Panther\Unattend.xml 2>NUL
+if exist "%WINDIR%\Panther\Unattend\Unattended.xml" echo "%WINDIR%\Panther\Unattend\Unattended.xml" 2>NUL
+if exist "%WINDIR%\Panther\Unattended.xml" echo "%WINDIR%\Panther\Unattended.xml" 2>NUL
+if exist "%WINDIR%\Panther\Unattend\Unattend.xml" echo "%WINDIR%\Panther\Unattend\Unattend.xml" 2>NUL
+if exist "%WINDIR%\Panther\Unattend.xml" echo "%WINDIR%\Panther\Unattend.xml" 2>NUL
+if exist %SystemDrive%\MININT\SMSOSD\OSDLOGS\VARIABLES.DAT echo %SystemDrive%\MININT\SMSOSD\OSDLOGS\VARIABLES.DAT 2>NUL
+if exist %WINDIR%\panther\setupinfo echo %WINDIR%\panther\setupinfo 2>NUL
+if exist %WINDIR%\panther\setupinfo.bak echo %WINDIR%\panther\setupinfo.bak 2>NUL
+if exist %SystemDrive%\unattend.xml echo %SystemDrive%\unattend.xml 2>NUL
+if exist %WINDIR%\system32\sysprep.inf echo %WINDIR%\system32\sysprep.inf 2>NUL
+if exist %WINDIR%\system32\sysprep\sysprep.xml echo %WINDIR%\system32\sysprep\sysprep.xml 2>NUL
+if exist %WINDIR%\Microsoft.NET\Framework64\v4.0.30319\Config\web.config echo %WINDIR%\Microsoft.NET\Framework64\v4.0.30319\Config\web.config 2>NUL
+if exist %SystemDrive%\inetpub\wwwroot\web.config echo %SystemDrive%\inetpub\wwwroot\web.config 2>NUL
+if exist "%AllUsersProfile%\Application Data\McAfee\Common Framework\SiteList.xml" echo "%AllUsersProfile%\Application Data\McAfee\Common Framework\SiteList.xml" 2>NUL
+reg query HKEY_LOCAL_MACHINE\SOFTWARE\RealVNC\WinVNC4 /v password 2>NUL
+reg query HKCU\Software\SimonTatham\PuTTY\Sessions 2>NUL
 echo.
 echo ----------------------------------------------------------------------------
 echo.
@@ -494,10 +547,24 @@ accesschk.exe -accepteula -kvuqsw hklm\System\CurrentControlSet\services
 echo.
 echo ----------------------------------------------------------------------------
 echo.
+echo Checking permissions on uninstall registy keys and subkeys (changing binary paths):
+accesschk.exe -accepteula -kvuqsw HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall
+echo.
+echo ----------------------------------------------------------------------------
+echo.
 echo Checking BINARY_PATH_NAME for all services (if there is a space and path is not enclosed with quotes then it may be vulnerable - exploit/windows/local/trusted_service_path):
 echo.
 for /f "tokens=2" %%n in ('sc query state^= all^| findstr SERVICE_NAME') do (
 	for /f "delims=: tokens=1*" %%r in ('sc qc "%%~n" ^| findstr BINARY_PATH_NAME') do echo %%~s
+)
+echo.
+echo ----------------------------------------------------------------------------
+echo.
+echo Checking if SCCM is installed - installers are run with SYSTEM privileges, many are vulnerable to DLL Sideloading:
+if exist C:\Windows\CCM\SCClient.exe (
+    echo Installed.
+) else (
+    echo Not Installed.
 )
 echo.
 echo ----------------------------------------------------------------------------
@@ -574,6 +641,29 @@ cmd.exe /c icacls "C:\Windows\system32" ^| more
 echo.
 echo ----------------------------------------------------------------------------
 echo.
+echo ProgramData permissions - backdoor windows binaries:
+accesschk.exe -accepteula -dvuqw %%k "C:\ProgramData" | findstr /v /l /i /c:"No matching objects found."
+accesschk.exe -accepteula -vuqsw %%k "C:\ProgramData" | findstr /v /l /i /c:"No matching objects found."
+echo.
+echo ----------------------------------------------------------------------------
+echo.
+echo Checking Windows Temp read permissions misconfiguration (trying DLL Sideloading in each created directory):
+echo https://technet.microsoft.com/pl-pl/library/cc753525(v=ws.10).aspx - shows permissions definition
+echo.
+cmd.exe /c icacls "C:\Windows\Temp" ^| more
+echo.
+echo ----------------------------------------------------------------------------
+echo.
+echo Checking Program Files permissions misconfiguration - backdoor windows binaries:
+echo https://technet.microsoft.com/pl-pl/library/cc753525(v=ws.10).aspx - shows permissions definition
+echo.
+accesschk.exe -accepteula -dvuqw %%k "%ProgramFiles%" | findstr /v /l /i /c:"No matching objects found."
+accesschk.exe -accepteula -vuqsw %%k "%ProgramFiles%" | findstr /v /l /i /c:"No matching objects found."
+accesschk.exe -accepteula -dvuqw %%k "%ProgramFiles(x86)%" | findstr /v /l /i /c:"No matching objects found."
+accesschk.exe -accepteula -vuqsw %%k "%ProgramFiles(x86)%" | findstr /v /l /i /c:"No matching objects found."
+echo.
+echo ----------------------------------------------------------------------------
+echo.
 echo Checking startup directory permissions for all users (executing binaries with permissions of logged user):
 echo https://technet.microsoft.com/pl-pl/library/cc753525(v=ws.10).aspx - shows permissions definition
 echo.
@@ -629,5 +719,3 @@ if "%long%" == "yes" (
 )
 
 :finish
-
-
