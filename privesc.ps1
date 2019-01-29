@@ -230,7 +230,7 @@ Invoke-Privesc -Groups 'Users,Everyone,"Authenticated Users"' -Mode full -Extend
 
         Write "Checking privileges - rotten potato:"
         $result = $null
-        $result = (whoami /priv | findstr /i /C:"SeImpersonatePrivilege" /C:"SeTcbPrivilege" /C:"SeBackupPrivilege" /C:"SeRestorePrivilege" /C:"SeCreateTokenPrivilege" /C:"SeLoadDriverPrivilege" /C:"SeTakeOwnershipPrivilege" /C:"SeDebugPrivilege" 2> $null) | Out-String
+        $result = (whoami /priv | findstr /i /C:"SeImpersonatePrivilege" /C:"SeAssignPrimaryPrivilege" /C:"SeTcbPrivilege" /C:"SeBackupPrivilege" /C:"SeRestorePrivilege" /C:"SeCreateTokenPrivilege" /C:"SeLoadDriverPrivilege" /C:"SeTakeOwnershipPrivilege" /C:"SeDebugPrivilege" 2> $null) | Out-String
         if ($result) { Write $result } else { Write "User privileges do not allow for rotten potato exploit." }
             
 
