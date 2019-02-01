@@ -13,7 +13,7 @@ Mode to use - full or lhf (default).
 .PARAMETER Extended
 Switch enables lookups that may last for several minutes.
 .EXAMPLE
-Invoke-Privesc -Groups 'Users,Everyone,"Authenticated Users"' -Mode full -Extended
+Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Mode full -Extended
 #>
 
     [CmdletBinding()]
@@ -21,7 +21,7 @@ Invoke-Privesc -Groups 'Users,Everyone,"Authenticated Users"' -Mode full -Extend
 	
 		[String]
 		#[Parameter(Mandatory=$True)]
-		$groups = 'Users,Everyone,"Authenticated Users"',
+		$groups = 'Users,Everyone,Authenticated Users',
 	
         [Switch]
 		$extended,
