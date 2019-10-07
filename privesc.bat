@@ -148,6 +148,13 @@ for %%k in (%*) do (
 
 	echo.
 	echo.
+	
+	echo ProgramData permissions - backdoor windows binaries:
+	accesschk.exe -accepteula -dvuqw %%k "%ProgramData%" | findstr /v /l /i /c:"No matching objects found."
+	accesschk.exe -accepteula -vuqsw %%k "%ProgramData%" | findstr /v /l /i /c:"No matching objects found."
+	
+	echo.
+	echo.
 
 	echo PATH variable entries permissions - place binary or DLL to execute instead of legitimate
 	for %%A in ("%path:;=";"%") do (
