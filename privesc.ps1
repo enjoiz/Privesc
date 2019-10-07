@@ -904,10 +904,10 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Mode full -Extended
 
 
         Write "ProgramData files and directories permissions - backdoor windows binaries:"
-        $result = $null
-        $result = Get-ChildItem C:\ProgramData -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgrmData files and directories are correct for all groups." }
-            
+	$result = $null
+	$result = Get-ChildItem "$env:ProgramData" -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData files and directories are correct for all groups." }
+
 
         Write ""
         Write "----------------------------------------------------------------------"
