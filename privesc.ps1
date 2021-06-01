@@ -228,10 +228,10 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Mode full -Extended
         Write ""
 
 
-        Write "Checking privileges - rotten potato:"
+        Write "Checking user privileges:"
         $result = $null
         $result = (whoami /priv | findstr /i /C:"SeImpersonatePrivilege" /C:"SeAssignPrimaryPrivilege" /C:"SeTcbPrivilege" /C:"SeBackupPrivilege" /C:"SeRestorePrivilege" /C:"SeCreateTokenPrivilege" /C:"SeLoadDriverPrivilege" /C:"SeTakeOwnershipPrivilege" /C:"SeDebugPrivilege" 2> $null) | Out-String
-        if ($result) { Write $result } else { Write "User privileges do not allow for rotten potato exploit." }
+        if ($result) { Write $result } else { Write "User privileges do not allow for exploitation." }
             
 
         Write ""
@@ -718,10 +718,10 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Mode full -Extended
         Write ""
 
              
-        Write "Checking privileges - rotten potato:"
+        Write "Checking user privileges:"
         $result = $null
         $result = (whoami /priv | findstr /i /C:"SeImpersonatePrivilege" /C:"SeTcbPrivilege" /C:"SeBackupPrivilege" /C:"SeRestorePrivilege" /C:"SeCreateTokenPrivilege" /C:"SeLoadDriverPrivilege" /C:"SeTakeOwnershipPrivilege" /C:"SeDebugPrivilege" 2> $null) | Out-String
-        if ($result) { Write $result } else { Write "User privileges do not allow for rotten potato exploit." }
+        if ($result) { Write $result } else { Write "User privileges do not allow for exploitation." }
             
 
         Write ""
@@ -1040,7 +1040,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Mode full -Extended
         Write ""
 
 
-        Write "HKLM keys permissions - if there is a path in a value of registry key you can try for example HTTP to SMB relay - Potato:"
+        Write "HKLM keys permissions - if there is a path in a value of registry key you can try for example HTTP to SMB relay:"
         $result = $null
         $result = Get-ChildItem hklm: -Force -Recurse 2> $null | ForEach-Object { Trap { Continue } if ($_.Name -notlike 'HKEY_LOCAL_MACHINE\SOFTWARE\Classes*') { $o = $_; Get-ItemProperty -Path Registry::$o 2> $null } } | ForEach-Object { Trap { Continue } ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } (Get-Acl -Path Registry::$o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on $o with value $obj" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on HKLM registry keys are correct for all groups." }
