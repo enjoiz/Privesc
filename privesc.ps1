@@ -560,7 +560,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Files that may include passwords:"
         $result = $null
-        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *pwd*, *.sysdef, *.hashtable, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
+        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *pwd*, *sysdef.xml, *hashtable.xml, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Files not found." }
 
 
