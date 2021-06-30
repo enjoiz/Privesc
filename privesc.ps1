@@ -185,8 +185,6 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         if (Test-Path $env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\Config\web.config) { Write "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\Config\web.config" ; $i = 1 }
         if (Test-Path $env:SystemDrive\inetpub\wwwroot\web.config) { Write "$env:SystemDrive\inetpub\wwwroot\web.config" ; $i = 1 }
         if (Test-Path "$env:AllUsersProfile\Application Data\McAfee\Common Framework\SiteList.xml") { Write "$env:AllUsersProfile\Application Data\McAfee\Common Framework\SiteList.xml" ; $i = 1 }
-        if (Test-Path $env:SystemDrive\CMSysDef\*.sysdef) { Write "$env:SystemDrive\CMSysDef\*.sysdef" ; $i = 1 }
-        if (Test-Path $env:SystemDrive\WMExml\*.hashtable) { Write "$env:SystemDrive\WMExml\*.hashtable" ; $i = 1 }
         if (Test-Path HKLM:\SOFTWARE\RealVNC\WinVNC4) { Get-ChildItem -Force -Path HKLM:\SOFTWARE\RealVNC\WinVNC4 ; $i = 1 }
         if (Test-Path HKCU:\Software\SimonTatham\PuTTY\Sessions) { Get-ChildItem -Force -Path HKCU:\Software\SimonTatham\PuTTY\Sessions ; $i = 1 }
         if ($i -eq 0) { Write "Files not found."}
@@ -431,7 +429,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 		
 		
-		Write "Missing service binary - put in place your on binary:"
+	Write "Missing service binary - put in place your on binary:"
         $result = $null
         $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force 2> $null | ForEach-Object { Get-ItemProperty -Path Registry::$_ -Name ImagePath 2> $null } | ForEach-Object { Trap { Continue } $obj = $_.ImagePath; If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } if ((-Not (Test-Path $o -PathType Leaf)) -and ($o[1] -eq ":") -and (-not($o -ilike '*\WINDOWS\*')) -and (-not($o -ilike '*\Program Files*'))) { Write "$o" }}
         if ($result -ne $null) { Write $result } else { Write "All service binaries are in place." }
@@ -562,7 +560,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Files that may include passwords:"
         $result = $null
-        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *pwd*, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
+        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *pwd*, *.sysdef, *.hashtable, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Files not found." }
 
 
