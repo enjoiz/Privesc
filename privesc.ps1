@@ -8,6 +8,8 @@ IncludeInList
 Find misconfigurations that may allow for privilege escalation.
 .PARAMETER Groups
 Groups of our interest when checking ACLs.
+.PARAMETER Whoami
+Verify permissions related to the current user.
 .PARAMETER Extended
 Switch enables output of additional information.
 .PARAMETER Long
@@ -19,8 +21,11 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
     [CmdletBinding()]
     param(
 		[String]
-		$Groups = 'Users,Everyone,Authenticated Users,Interactive,Guests',
+		$Groups = 'Users,Everyone,Authenticated Users,Interactive',
 
+		[Switch]
+		$Whoami,
+		
         [Switch]
 		$Extended,
 
@@ -29,8 +34,10 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
     )
 
 	$arguments = $groups.Split(",")
-    $whoami = whoami
-
+	$whoamiVal = ""
+	if ($Whoami) {
+		$whoamiVal = whoami
+	}
 
 	function resolve($variable) {
         $name = Get-ChildItem Env:$variable
@@ -185,6 +192,8 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         if (Test-Path $env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\Config\web.config) { Write "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\Config\web.config" ; $i = 1 }
         if (Test-Path $env:SystemDrive\inetpub\wwwroot\web.config) { Write "$env:SystemDrive\inetpub\wwwroot\web.config" ; $i = 1 }
         if (Test-Path "$env:AllUsersProfile\Application Data\McAfee\Common Framework\SiteList.xml") { Write "$env:AllUsersProfile\Application Data\McAfee\Common Framework\SiteList.xml" ; $i = 1 }
+        if (Test-Path $env:SystemDrive\CMSysDef\*.sysdef) { Write "$env:SystemDrive\CMSysDef\*.sysdef" ; $i = 1 }
+        if (Test-Path $env:SystemDrive\WMExml\*.hashtable) { Write "$env:SystemDrive\WMExml\*.hashtable" ; $i = 1 }
         if (Test-Path HKLM:\SOFTWARE\RealVNC\WinVNC4) { Get-ChildItem -Force -Path HKLM:\SOFTWARE\RealVNC\WinVNC4 ; $i = 1 }
         if (Test-Path HKCU:\Software\SimonTatham\PuTTY\Sessions) { Get-ChildItem -Force -Path HKCU:\Software\SimonTatham\PuTTY\Sessions ; $i = 1 }
         if ($i -eq 0) { Write "Files not found."}
@@ -254,7 +263,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "PATH variable entries permissions - place binary or DLL to execute before legitimate"
         $result = $null
-        $result = $env:path.split(";") | ForEach { Trap { Continue }; if ($_ -and ($_ -ne $null)) { $o = $_ ; (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = $env:path.split(";") | ForEach { Trap { Continue }; if ($_ -and ($_ -ne $null)) { $o = $_ ; (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set for all PATH variable entries are correct for all groups." }
     	
 
@@ -265,7 +274,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
      
         Write "System32 directory permissions - backdoor windows binaries:"
         $result = $null
-        $result = (Get-Acl C:\Windows\system32).Access | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
+        $result = (Get-Acl C:\Windows\system32).Access | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on System32 directory are correct for all groups." }
         
 
@@ -276,7 +285,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         
         Write "System32 files and directories permissions - backdoor windows binaries:"
         $result = $null
-        $result = Get-ChildItem C:\Windows\system32 -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ChildItem C:\Windows\system32 -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on System32 files and directories are correct for all groups." }
         
 
@@ -287,7 +296,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Windows Temp directory read permissions - DLL Sideloading each created directory:"
         $result = $null
-        $result = (Get-Acl C:\Windows\Temp).Access 2> $null | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "ChangePermissions|FullControl|Modify|TakeOwnership|ListDirectory" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
+        $result = (Get-Acl C:\Windows\Temp).Access 2> $null | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "ChangePermissions|FullControl|Modify|TakeOwnership|ListDirectory" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on Windows Temp directory are correct for all groups." }
             
 
@@ -298,8 +307,8 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Program Files directory permissions - backdoor windows binaries:"
         $result = $null
-        $result = (Get-Acl "$env:ProgramFiles").Access | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
-        $result += (Get-Acl ${env:ProgramFiles(x86)}).Access | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
+        $result = (Get-Acl "$env:ProgramFiles").Access | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
+        $result += (Get-Acl ${env:ProgramFiles(x86)}).Access | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on C:\Windows\system32" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on Program Files directory are correct for all groups." }
         
 
@@ -310,8 +319,8 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Program Files files and directories permissions - backdoor windows binaries:"
         $result = $null
-        $result = Get-ChildItem "$env:ProgramFiles" -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += Get-ChildItem ${env:ProgramFiles(x86)} -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ChildItem "$env:ProgramFiles" -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += Get-ChildItem ${env:ProgramFiles(x86)} -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on Program Files files and directories are correct for all groups." }
         
 
@@ -320,32 +329,32 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 	
 	
-	Write "ProgramData directories permissions - use dll hijacking:"
-	$result = $null
-	$result = Get-ChildItem "$env:ProgramData" -Directory -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } }
-	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData directories are correct for all groups." }
+		Write "ProgramData directories permissions - use dll hijacking:"
+		$result = $null
+		$result = Get-ChildItem "$env:ProgramData" -Directory -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } }
+		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData directories are correct for all groups." }
 
 
-	Write ""
-	Write "----------------------------------------------------------------------"
-	Write ""
+		Write ""
+		Write "----------------------------------------------------------------------"
+		Write ""
 		
 		
         Write "ProgramData files permissions - backdoor windows binaries:"
-	$result = $null
-	$result = Get-ChildItem "$env:ProgramData" -File -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData files are correct for all groups." }
+		$result = $null
+		$result = Get-ChildItem "$env:ProgramData" -File -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData files are correct for all groups." }
 		
 
-	Write ""
-	Write "----------------------------------------------------------------------"
-	Write ""
+		Write ""
+		Write "----------------------------------------------------------------------"
+		Write ""
 
 
         Write "All users startup permissions - execute binary with permissions of logged user:"
         $result = $null
-        $result = (Get-Acl "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup").Access | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup" } } }
-        $result += Get-ChildItem "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup" -Force -Recurse | ForEach-Object { $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = (Get-Acl "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup").Access | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup" } } }
+        $result += Get-ChildItem "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup" -Force -Recurse | ForEach-Object { $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on All Users startup files and directories are correct for all groups." }
             
 
@@ -356,13 +365,13 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Startup executables permissions - backdoor startup binaries and check if they are also run at startup by other users:"
         $result = $null
-        $result = Get-ChildItem "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup" -Force -Recurse | ForEach-Object { $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += (Get-Acl hklm:\Software\Microsoft\Windows\CurrentVersion\Run).Access | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on hklm:\Software\Microsoft\Windows\CurrentVersion\Run" } } }
-        $result += (Get-Acl hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce).Access | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce" } } }
-        $result += Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ChildItem "$env:USERPROFILE\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup" -Force -Recurse | ForEach-Object { $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += (Get-Acl hklm:\Software\Microsoft\Windows\CurrentVersion\Run).Access | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on hklm:\Software\Microsoft\Windows\CurrentVersion\Run" } } }
+        $result += (Get-Acl hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce).Access | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce" } } }
+        $result += Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on startup executables are correct for all groups." }
 
 
@@ -373,10 +382,10 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Startup executables directory permissions - try DLL injection:"
         $result = $null
-        $result = Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += Get-ItemProperty -Path hklm:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\Run | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result += Get-ItemProperty -Path hkcu:\Software\Microsoft\Windows\CurrentVersion\RunOnce | ForEach-Object { ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on startup executables directories are correct for all groups." }
             
 
@@ -387,7 +396,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Checking permissions on uninstall registy keys and subkeys (changing binary paths):"
         $result = $null
-        $result = Get-ChildItem HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall -Force -Recurse 2> $null | ForEach-Object { $o = $_.Name; (Get-Acl -Path Registry::$_).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ChildItem HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall -Force -Recurse 2> $null | ForEach-Object { $o = $_.Name; (Get-Acl -Path Registry::$_).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on uninstall registry keys and subkeys are correct for all groups." }
 
 
@@ -398,7 +407,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Checking services permissions - change BINARY_PATH_NAME of a service:"
         $result = $null
-        $result = Get-Service | Select Name | ForEach-Object { ForEach ($name in $_.Name) { Trap { Continue } $privs = ((sc.exe sdshow $name) | Out-String | ConvertFrom-SDDL 2> $null); Write $privs.Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.Rights.tostring() -match "ChangePermissions|FullControl|Modify|TakeOwnership|Write,|Write |WriteData" -and $_.IdentityReference.tostring() -like "*\$arg" -and $_.AccessControlType.tostring() -match "Allow") { $rights = $_.Rights.tostring(); Write "Group: $arg, Permissions: $rights on $name" } } }
+        $result = Get-Service | Select Name | ForEach-Object { ForEach ($name in $_.Name) { Trap { Continue } $privs = ((sc.exe sdshow $name) | Out-String | ConvertFrom-SDDL 2> $null); Write $privs.Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.Rights.tostring() -match "ChangePermissions|FullControl|Modify|TakeOwnership|Write,|Write |WriteData" -and $_.IdentityReference.tostring() -like "*\$arg" -and $_.AccessControlType.tostring() -match "Allow") { $rights = $_.Rights.tostring(); Write "Group: $arg, Permissions: $rights on $name" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on services are correct for all groups. Double check - each part of SDDL should have A as Allow at the beginning." }
         
 
@@ -409,7 +418,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Checking permissions on services registy keys and subkeys (changing ImagePath value of a service):"
         $result = $null
-        $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force -Recurse 2> $null | ForEach-Object { $o = $_.Name; (Get-Acl -Path Registry::$_).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force -Recurse 2> $null | ForEach-Object { $o = $_.Name; (Get-Acl -Path Registry::$_).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on services registry keys and subkeys are correct for all groups." }
 
 
@@ -420,7 +429,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Service binary permissions - backdoor service binary:"
         $result = $null
-        $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force 2> $null | ForEach-Object { Get-ItemProperty -Path Registry::$_ -Name ImagePath 2> $null } | ForEach-Object { Trap { Continue } $obj = $_.ImagePath; If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o 2> $null).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force 2> $null | ForEach-Object { Get-ItemProperty -Path Registry::$_ -Name ImagePath 2> $null } | ForEach-Object { Trap { Continue } $obj = $_.ImagePath; If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } (Get-Acl $o 2> $null).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result } else { Write "Permissions set on service binaries are correct for all groups." }
            
 
@@ -429,7 +438,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 		
 		
-	Write "Missing service binary - put in place your on binary:"
+		Write "Missing service binary - put in place your on binary:"
         $result = $null
         $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force 2> $null | ForEach-Object { Get-ItemProperty -Path Registry::$_ -Name ImagePath 2> $null } | ForEach-Object { Trap { Continue } $obj = $_.ImagePath; If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } if ((-Not (Test-Path $o -PathType Leaf)) -and ($o[1] -eq ":") -and (-not($o -ilike '*\WINDOWS\*')) -and (-not($o -ilike '*\Program Files*'))) { Write "$o" }}
         if ($result -ne $null) { Write $result } else { Write "All service binaries are in place." }
@@ -442,7 +451,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Service directory permissions - try DLL injection:"
         $result = $null
-        $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force 2> $null | ForEach-Object { Get-ItemProperty -Path Registry::$_ -Name ImagePath 2> $null } | ForEach-Object { Trap { Continue } $obj = $_.ImagePath; If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o 2> $null).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force 2> $null | ForEach-Object { Get-ItemProperty -Path Registry::$_ -Name ImagePath 2> $null } | ForEach-Object { Trap { Continue } $obj = $_.ImagePath; If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } $o2 = $o.Split("\"); $o = $o2[0..($o2.Length-2)] -join ("\"); (Get-Acl $o 2> $null).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on service directories are correct for all groups." }
             
 
@@ -453,7 +462,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
             
         Write "Process binary permissions - backdoor process binary:"
         $result = $null
-        $result = Get-Process | ForEach-Object { ForEach ($proc in $_.path) { (Get-Acl $proc).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $proc" } } }
+        $result = Get-Process | ForEach-Object { ForEach ($proc in $_.path) { (Get-Acl $proc).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $proc" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on process binaries are correct for all groups." }
             
 
@@ -464,7 +473,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
             
         Write "Process directory permissions - try DLL injection:"
         $result = $null
-        $result = Get-Process | ForEach-Object { ForEach ($proc in $_.path) { $o = $proc.Split("\"); $proc = $o[0..($o.Length-2)] -join ("\"); (Get-Acl $proc).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $proc" } } }
+        $result = Get-Process | ForEach-Object { ForEach ($proc in $_.path) { $o = $proc.Split("\"); $proc = $o[0..($o.Length-2)] -join ("\"); (Get-Acl $proc).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $proc" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on process directories are correct for all groups." }
             
 
@@ -475,7 +484,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
             
         Write "Scheduled process binary permissions - backdoor binary:"
         $result = $null
-        $result = Get-ScheduledTask | % { Trap { Continue } $o = $_.Actions.Execute ; If ($o -like '*%*%*') { $var = $o.split('%')[1]; $out = resolve($var); $o = $o.replace("%$var%",$out) }; (Get-Acl $o 2> $null).Access } | ForEach-Object { Trap { Continue } ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ScheduledTask | % { Trap { Continue } $o = $_.Actions.Execute ; If ($o -like '*%*%*') { $var = $o.split('%')[1]; $out = resolve($var); $o = $o.replace("%$var%",$out) }; (Get-Acl $o 2> $null).Access } | ForEach-Object { Trap { Continue } ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on scheduled binaries are correct for all groups." }
             
 
@@ -484,7 +493,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 		
 		
-	Write "Missing scheduled task binary - put in place your on binary:"
+		Write "Missing scheduled task binary - put in place your on binary:"
         $result = $null
         $result = Get-ScheduledTask | % { Trap { Continue } $o = $_.Actions.Execute ; If ($o -like '*%*%*') { $var = $o.split('%')[1]; $out = resolve($var); $o = $o.replace("%$var%",$out) }; If ($o -like '"*"') { $o = $o.split('"')[1] } ; if ((-Not (Test-Path $o -PathType Leaf)) -and ($o[1] -eq ":") -and (-not($o -ilike '*\WINDOWS\*')) -and (-not($o -ilike '*\Program Files*'))) { Write "$o" }}
         if ($result -ne $null) { Write $result } else { Write "All scheduled task binaries are in place." }
@@ -497,7 +506,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
             
         Write "Scheduled process directory permissions - try DLL injection:"
         $result = $null
-        $result = Get-ScheduledTask | % { Trap { Continue } $o = $_.Actions.Execute ; If ($o -like '*%*%*') { $var = $o.split('%')[1]; $out = resolve($var); $o = $o.replace("%$var%",$out) }; $obj = $o.Split("\"); $o = $obj[0..($obj.Length-2)] -join ("\"); (Get-Acl $o 2> $null).Access } | ForEach-Object { Trap { Continue } ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        $result = Get-ScheduledTask | % { Trap { Continue } $o = $_.Actions.Execute ; If ($o -like '*%*%*') { $var = $o.split('%')[1]; $out = resolve($var); $o = $o.replace("%$var%",$out) }; $obj = $o.Split("\"); $o = $obj[0..($obj.Length-2)] -join ("\"); (Get-Acl $o 2> $null).Access } | ForEach-Object { Trap { Continue } ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on scheduled binary directories are correct for all groups." }
             
 
@@ -508,30 +517,30 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
             
         Write "Loaded DLLs permissions - backdoor DLL:"
         $result = $null
-        $result = ForEach ($item in (Get-WmiObject -Class CIM_ProcessExecutable)) { [wmi]"$($item.Antecedent)" | Where-Object {$_.Extension -eq 'dll'} | Select Name | ForEach-Object { $o = $_.Name; (Get-Acl $o 2> $null).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } } }
+        $result = ForEach ($item in (Get-WmiObject -Class CIM_ProcessExecutable)) { [wmi]"$($item.Antecedent)" | Where-Object {$_.Extension -eq 'dll'} | Select Name | ForEach-Object { $o = $_.Name; (Get-Acl $o 2> $null).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } } }
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on loaded DLLs are correct for all groups." }
 		
 		
-	Write ""
-	Write "----------------------------------------------------------------------"
-	Write ""
+		Write ""
+		Write "----------------------------------------------------------------------"
+		Write ""
 		
 		
-	Write "Directories (with exes) permissions on all drives - dll hijacking:"
-	$result = $null
-	$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -Directory -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoami.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } } }
-	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on directories on all drives are correct for all groups." }
+		Write "Directories (with exes) permissions on all drives - dll hijacking:"
+		$result = $null
+		$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -Directory -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoamiVal.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } } }
+		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on directories on all drives are correct for all groups." }
 		
 		
-	Write ""
-	Write "----------------------------------------------------------------------"
-	Write ""
+		Write ""
+		Write "----------------------------------------------------------------------"
+		Write ""
 		
 		
-	Write "Files permissions on all drives - backdoor:"
-	result = $null
-	$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -File -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoami.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } } }
-	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on files on other all are correct for all groups." }
+		Write "Files permissions on all drives - backdoor:"
+		$result = $null
+		$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -File -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoamiVal.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } } }
+		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on files on other all are correct for all groups." }
             
 
         Write ""
@@ -539,9 +548,9 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 		
 		
-	$result = $null
-	$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -ne 'Fixed' } | %{ $_.Name }
-	if ($result -ne $null) { Write "Other drives not verified:" ; Write $result | Sort -Unique }
+		$result = $null
+		$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -ne 'Fixed' } | %{ $_.Name }
+		if ($result -ne $null) { Write "Other drives not verified:" ; Write $result | Sort -Unique }
             
 
         Write ""
@@ -560,7 +569,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Files that may include passwords:"
         $result = $null
-        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *pwd*, *sysdef.xml, *hashtable.xml, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
+        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *pwd*, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Files not found." }
 
 
@@ -591,10 +600,10 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         
             Write "List information about current user:"
             $result = $null
-            $result = (net user $whoami.Split('\')[1] 2> $null) | Out-String
-            $result += (net user $whoami.Split('\')[1] /domain 2> $null) | Out-String
+            $result = (net user $whoamiVal.Split('\')[1] 2> $null) | Out-String
+            $result += (net user $whoamiVal.Split('\')[1] /domain 2> $null) | Out-String
             $result += (whoami /all) | Out-String
-            if ($result -like "*" + $whoami.Split('\')[1] + "*") { Write $result } else { Write "User is probably from another domain than this server." }
+            if ($result -like "*" + $whoamiVal.Split('\')[1] + "*") { Write $result } else { Write "User is probably from another domain than this server." }
             
 
             Write ""
@@ -748,7 +757,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
             Write "HKLM keys permissions:"
             $result = $null
-            $result = Get-ChildItem hklm: -Force -Recurse 2> $null | ForEach-Object { Trap { Continue } if ($_.Name -notlike 'HKEY_LOCAL_MACHINE\SOFTWARE\Classes*') { $o = $_; Get-ItemProperty -Path Registry::$o 2> $null } } | ForEach-Object { Trap { Continue } ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } (Get-Acl -Path Registry::$o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoami.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on $o with value $obj" } } }
+            $result = Get-ChildItem hklm: -Force -Recurse 2> $null | ForEach-Object { Trap { Continue } if ($_.Name -notlike 'HKEY_LOCAL_MACHINE\SOFTWARE\Classes*') { $o = $_; Get-ItemProperty -Path Registry::$o 2> $null } } | ForEach-Object { Trap { Continue } ForEach ($obj in $_.psobject.properties.Value) { If ($obj -like 'Microsoft.PowerShell.Core*') { Break } (Get-Acl -Path Registry::$o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.RegistryRights.tostring() -match "ChangePermissions|CreateSubKey|FullControl|SetValue|TakeOwnership|WriteKey" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.RegistryRights.tostring(); Write "Group: $arg, Permissions: $rights on $o with value $obj" } } }
             if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on HKLM registry keys are correct for all groups." }
 
 
