@@ -15,31 +15,31 @@ Switch enables output of additional information.
 .PARAMETER Long
 Switch enables lookups that may last a lot longer.
 .EXAMPLE
-Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
+Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Whoami -Extended -Long
 #>
 
     [CmdletBinding()]
     param(
-		[String]
-		$Groups = 'Users,Everyone,Authenticated Users,Interactive',
+	[String]
+	$Groups = 'Users,Everyone,Authenticated Users,Interactive',
 
-		[Switch]
-		$Whoami,
+	[Switch]
+	$Whoami,
 		
         [Switch]
-		$Extended,
+	$Extended,
 
         [Switch]
-		$Long
+	$Long
     )
 
-	$arguments = $groups.Split(",")
-	$whoamiVal = ""
-	if ($Whoami) {
-		$whoamiVal = whoami
-	}
+    $arguments = $groups.Split(",")
+    $whoamiVal = ""
+    if ($Whoami) {
+	$whoamiVal = whoami
+    }
 
-	function resolve($variable) {
+    function resolve($variable) {
         $name = Get-ChildItem Env:$variable
         return $name.Value
     }
@@ -164,7 +164,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
     }
 
 
-		Write "Date of last applied patch - just use public exploits if not patched:"
+	Write "Date of last applied patch - just use public exploits if not patched:"
         wmic qfe get InstalledOn | Sort-Object { $_ -as [datetime] } | Select -Last 1
 
 
@@ -192,8 +192,6 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         if (Test-Path $env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\Config\web.config) { Write "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\Config\web.config" ; $i = 1 }
         if (Test-Path $env:SystemDrive\inetpub\wwwroot\web.config) { Write "$env:SystemDrive\inetpub\wwwroot\web.config" ; $i = 1 }
         if (Test-Path "$env:AllUsersProfile\Application Data\McAfee\Common Framework\SiteList.xml") { Write "$env:AllUsersProfile\Application Data\McAfee\Common Framework\SiteList.xml" ; $i = 1 }
-        if (Test-Path $env:SystemDrive\CMSysDef\*.sysdef) { Write "$env:SystemDrive\CMSysDef\*.sysdef" ; $i = 1 }
-        if (Test-Path $env:SystemDrive\WMExml\*.hashtable) { Write "$env:SystemDrive\WMExml\*.hashtable" ; $i = 1 }
         if (Test-Path HKLM:\SOFTWARE\RealVNC\WinVNC4) { Get-ChildItem -Force -Path HKLM:\SOFTWARE\RealVNC\WinVNC4 ; $i = 1 }
         if (Test-Path HKCU:\Software\SimonTatham\PuTTY\Sessions) { Get-ChildItem -Force -Path HKCU:\Software\SimonTatham\PuTTY\Sessions ; $i = 1 }
         if ($i -eq 0) { Write "Files not found."}
@@ -329,26 +327,26 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 	
 	
-		Write "ProgramData directories permissions - use dll hijacking:"
-		$result = $null
-		$result = Get-ChildItem "$env:ProgramData" -Directory -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } }
-		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData directories are correct for all groups." }
+	Write "ProgramData directories permissions - use dll hijacking:"
+	$result = $null
+	$result = Get-ChildItem "$env:ProgramData" -Directory -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } }
+	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData directories are correct for all groups." }
 
 
-		Write ""
-		Write "----------------------------------------------------------------------"
-		Write ""
+	Write ""
+	Write "----------------------------------------------------------------------"
+	Write ""
 		
 		
         Write "ProgramData files permissions - backdoor windows binaries:"
-		$result = $null
-		$result = Get-ChildItem "$env:ProgramData" -File -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData files are correct for all groups." }
+	$result = $null
+	$result = Get-ChildItem "$env:ProgramData" -File -Force -Recurse 2> $null | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on ProgramData files are correct for all groups." }
 		
 
-		Write ""
-		Write "----------------------------------------------------------------------"
-		Write ""
+	Write ""
+	Write "----------------------------------------------------------------------"
+	Write ""
 
 
         Write "All users startup permissions - execute binary with permissions of logged user:"
@@ -438,7 +436,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 		
 		
-		Write "Missing service binary - put in place your on binary:"
+	Write "Missing service binary - put in place your on binary:"
         $result = $null
         $result = Get-ChildItem hklm:\System\CurrentControlSet\services -Force 2> $null | ForEach-Object { Get-ItemProperty -Path Registry::$_ -Name ImagePath 2> $null } | ForEach-Object { Trap { Continue } $obj = $_.ImagePath; If ($obj -like 'Microsoft.PowerShell.Core*') { Break } If ($obj -like '"*"*') { $o = $obj.split('"')[1] } ElseIf ($obj -like '* -*') { $o = $obj.split('-')[0] } ElseIf ($obj -like '* /*') { $o = $obj.split('/')[0] } Else { $o = $obj } if ((-Not (Test-Path $o -PathType Leaf)) -and ($o[1] -eq ":") -and (-not($o -ilike '*\WINDOWS\*')) -and (-not($o -ilike '*\Program Files*'))) { Write "$o" }}
         if ($result -ne $null) { Write $result } else { Write "All service binaries are in place." }
@@ -493,7 +491,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 		
 		
-		Write "Missing scheduled task binary - put in place your on binary:"
+	Write "Missing scheduled task binary - put in place your on binary:"
         $result = $null
         $result = Get-ScheduledTask | % { Trap { Continue } $o = $_.Actions.Execute ; If ($o -like '*%*%*') { $var = $o.split('%')[1]; $out = resolve($var); $o = $o.replace("%$var%",$out) }; If ($o -like '"*"') { $o = $o.split('"')[1] } ; if ((-Not (Test-Path $o -PathType Leaf)) -and ($o[1] -eq ":") -and (-not($o -ilike '*\WINDOWS\*')) -and (-not($o -ilike '*\Program Files*'))) { Write "$o" }}
         if ($result -ne $null) { Write $result } else { Write "All scheduled task binaries are in place." }
@@ -521,26 +519,26 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on loaded DLLs are correct for all groups." }
 		
 		
-		Write ""
-		Write "----------------------------------------------------------------------"
-		Write ""
+	Write ""
+	Write "----------------------------------------------------------------------"
+	Write ""
 		
 		
-		Write "Directories (with exes) permissions on all drives - dll hijacking:"
-		$result = $null
-		$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -Directory -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoamiVal.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } } }
-		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on directories on all drives are correct for all groups." }
+	Write "Directories (with exes) permissions on all drives - dll hijacking:"
+	$result = $null
+	$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -Directory -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoamiVal.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); if (Test-Path $o\*.exe) { Write "Group: $arg, Permissions: $rights on $o" } } } } }
+	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on directories on all drives are correct for all groups." }
 		
 		
-		Write ""
-		Write "----------------------------------------------------------------------"
-		Write ""
+	Write ""
+	Write "----------------------------------------------------------------------"
+	Write ""
 		
 		
-		Write "Files permissions on all drives - backdoor:"
-		$result = $null
-		$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -File -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoamiVal.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } } }
-		if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on files on other all are correct for all groups." }
+	Write "Files permissions on all drives - backdoor:"
+	$result = $null
+	$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{ Get-ChildItem $_.Name -File -Force -Recurse 2> $null | Where {$_.FullName -notlike "C:\Users\*"+$whoamiVal.Split('\')[1]+"*\*"} | ForEach-Object { Trap { Continue }; $o = $_.FullName; (Get-Acl $_.FullName).Access } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and $_.IdentityReference.tostring() -like "*\$arg") { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } } }
+	if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set on files on other all are correct for all groups." }
             
 
         Write ""
@@ -548,9 +546,9 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
         Write ""
 		
 		
-		$result = $null
-		$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -ne 'Fixed' } | %{ $_.Name }
-		if ($result -ne $null) { Write "Other drives not verified:" ; Write $result | Sort -Unique }
+	$result = $null
+	$result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -ne 'Fixed' } | %{ $_.Name }
+	if ($result -ne $null) { Write "Other drives not verified:" ; Write $result | Sort -Unique }
             
 
         Write ""
@@ -559,7 +557,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
 
         Write "Possible passwords found in files on all drives are being dumped to pwds.txt."
-        [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | ForEach-Object { $drive = $_.Name; Get-ChildItem $drive -Force -Include *.xml, *.ini, *.cfg, *.config, *.properties, *.ps1, *.vbs, *.bat, *.log -Recurse 2> $null | Select-String -pattern "pwd","passw" 2> $null | Out-File -Append .\pwds.txt }
+        [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | ForEach-Object { $drive = $_.Name; Get-ChildItem $drive -Force -Include *.xml, *.sysdef, *.hashtable, *.ini, *.cfg, *.config, *.properties, *.ps1, *.vbs, *.bat, *.log -Recurse 2> $null | Select-String -pattern "pwd","passw" 2> $null | Out-File -Append .\pwds.txt }
 
 
         Write ""
@@ -569,7 +567,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Extended - Long
 
         Write "Files that may include passwords:"
         $result = $null
-        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *pwd*, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
+        $result = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.DriveType -eq 'Fixed' } | %{Get-ChildItem $_.Name -Force -Include *passw*, *.sysdef, *.hashtable, *pwd*, *.kdbx, *.rtsz, *.rtsx, *.one, *.onetoc2, *.snt, plum.sqlite -Recurse -erroraction silentlycontinue | %{ $_.FullName }}
         if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Files not found." }
 
 
