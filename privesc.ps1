@@ -220,7 +220,16 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Whoami -Extended -L
         if (Test-Path HKCU:\SOFTWARE\Policies\Microsoft\Windows\Installer) { Get-ItemProperty -Path HKCU:\SOFTWARE\Policies\Microsoft\Windows\Installer -Name AlwaysInstallElevated ; $i = 1 }
         if ($i -eq 0) { Write "Registries not found."}
 
-
+		
+		Write ""
+        Write "----------------------------------------------------------------------"
+        Write ""
+		
+		
+		Write "Check for Windows Autologin credentials:"
+		get-item -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
+		
+		
         Write ""
         Write "----------------------------------------------------------------------"
         Write ""
