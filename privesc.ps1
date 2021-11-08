@@ -165,7 +165,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Whoami -Extended -L
 
 
 	Write "Date of last applied patch - just use public exploits if not patched:"
-        wmic qfe get InstalledOn | Sort-Object { $_ -as [datetime] } | Select -Last 1
+        wmic qfe get InstalledOn | % { if ($_ -like "*/*") {$_} } | select -Last 1
 
 
         Write ""
@@ -227,8 +227,10 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Whoami -Extended -L
 
 
         Write "Checking user privileges:"
+		#findstr /i /C:
+		# "SeIm"+"perso"+"natePri"+"vilege","SeA"+"ssignPrima"+"ryPrivi"+"lege","SeT"+"cbPivi"+"lege","S"+"eBac"+"kupPriv"+"ilege","S"+"eRes"+"torePriv"+"ilege","S"+"eCre"+"ateTok"+"enPriv"+"ilege","SeLo"+"adDri"+"verPri"+"vilege","SeT"+"akeOwne"+"rshipPriv"+"ilege","SeDeb"+"ugPri"+"vilege"
         $result = $null
-        $result = (whoami /priv | findstr /i /v "Disabled" | findstr /i /C:"SeImpersonatePrivilege" /C:"SeAssignPrimaryPrivilege" /C:"SeTcbPrivilege" /C:"SeBackupPrivilege" /C:"SeRestorePrivilege" /C:"SeCreateTokenPrivilege" /C:"SeLoadDriverPrivilege" /C:"SeTakeOwnershipPrivilege" /C:"SeDebugPrivilege" 2> $null) | Out-String
+        $result = (whoami /priv | findstr /i /v "Disabled" 2> $null) | Out-String
         if ($result) { Write $result } else { Write "User privileges do not allow for exploitation." }
             
 
@@ -685,7 +687,7 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Whoami -Extended -L
 
         
             Write "List applied hotfixes:"
-            wmic qfe get Caption","Description","HotFixID","InstalledOn | Out-String
+            wmic qfe get "Caption","Description","HotFixID","InstalledOn" | Out-String
             
 
             Write ""
