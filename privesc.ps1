@@ -272,8 +272,8 @@ Invoke-Privesc -Groups 'Users,Everyone,Authenticated Users' -Whoami -Extended -L
 
         Write "PATH variable entries permissions - place binary or DLL to execute before legitimate"
         $result = $null
-        $result = $env:path.split(";") | ForEach { Trap { Continue }; if ($_ -and ($_ -ne $null)) { $o = $_ ; (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and (($_.IdentityReference.tostring() -like "*\$arg") -or ($_.IdentityReference.tostring() -eq "$arg"))) { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
-        if ($result -ne $null) { Write $result | Sort -Unique } else { Write "Permissions set for all PATH variable entries are correct for all groups." }
+        $result = $env:path.split(";") | ForEach { Trap { Continue }; if ($_ -and ($_ -ne $null) -and ($_ -notlike '*\WindowsApps')) { $o = $_ ; (Get-Acl $o).Access } } | ForEach-Object { ForEach ($arg in $arguments + $whoamiVal.Split('\')[1]) { if ($_.FileSystemRights.tostring() -match "AppendData|ChangePermissions|CreateDirectories|CreateFiles|FullControl|Modify|TakeOwnership|Write|WriteData|268435456|-536805376|1073741824" -and (($_.IdentityReference.tostring() -like "*\$arg") -or ($_.IdentityReference.tostring() -eq "$arg"))) { $rights = $_.FileSystemRights.tostring(); Write "Group: $arg, Permissions: $rights on $o" } } }
+        if ($result -ne $null) { Write $result | Sort -Unique ; Write "Full PATH: $env:path" } else { Write "Permissions set for all PATH variable entries are correct for all groups." }
     	
 
         Write ""
